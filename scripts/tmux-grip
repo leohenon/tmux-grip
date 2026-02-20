@@ -1,0 +1,551 @@
+#!/usr/bin/env bash
+
+set -u
+
+PLUGIN_NAME="grip"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+
+get_tmux_opt() {
+  local key="$1"
+  local default="$2"
+  local value
+  value="$(tmux show-option -gqv "$key" 2>/dev/null || true)"
+  if [ -n "$value" ]; then
+    printf '%s\n' "$value"
+  else
+    printf '%s\n' "$default"
+  fi
+}
+
+expand_home() {
+  local path="$1"
+  case "$path" in
+    "~/"*)
+      printf '%s/%s\n' "$HOME" "${path#"~/"}"
+      ;;
+    "\$HOME/"*)
+      printf '%s/%s\n' "$HOME" "${path#"\$HOME/"}"
+      ;;
+    *)
+      printf '%s\n' "$path"
+      ;;
+  esac
+}
+
+notify() {
+  tmux display-message "${PLUGIN_NAME}: $1"
+}
+
+max_slots_raw="$(get_tmux_opt '@tmux_grip_max_slots' '4')"
+case "$max_slots_raw" in
+  ''|*[!0-9]*) MAX_SLOTS=4 ;;
+  *) MAX_SLOTS="$max_slots_raw" ;;
+esac
+if [ "$MAX_SLOTS" -lt 1 ]; then
+  MAX_SLOTS=1
+fi
+if [ "$MAX_SLOTS" -gt 9 ]; then
+  MAX_SLOTS=9
+fi
+
+DATA_FILE="$(expand_home "$(get_tmux_opt '@tmux_grip_data_file' '~/.tmux/tmux-grip-marks')")"
+DATA_DIR="$(dirname "$DATA_FILE")"
+POPUP_WIDTH='35%'
+POPUP_HEIGHT='25%'
+
+ensure_data_dir() {
+  mkdir -p "$DATA_DIR"
+}
+
+lock_dir="${DATA_FILE}.lock"
+
+acquire_lock() {
+  local i=0
+  while ! mkdir "$lock_dir" 2>/dev/null; do
+    i=$((i + 1))
+    if [ "$i" -ge 50 ]; then
+      notify "failed to acquire state lock"
+      return 1
+    fi
+    sleep 0.05
+  done
+  return 0
+}
+
+release_lock() {
+  rmdir "$lock_dir" 2>/dev/null || true
+}
+
+trap release_lock EXIT INT TERM
+
+init_state() {
+  SESSIONS=()
+  local i
+  i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    SESSIONS[$i]=""
+    i=$((i + 1))
+  done
+}
+
+load_state() {
+  init_state
+  if [ ! -f "$DATA_FILE" ]; then
+    return 0
+  fi
+
+  local slot session _
+  while IFS=$'\t' read -r slot session _; do
+    case "$slot" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    if [ "$slot" -lt 1 ] || [ "$slot" -gt "$MAX_SLOTS" ]; then
+      continue
+    fi
+    if [ -z "$session" ]; then
+      continue
+    fi
+    SESSIONS[$slot]="$session"
+  done < "$DATA_FILE"
+}
+
+save_state() {
+  compact_slots
+  ensure_data_dir
+  local tmp_file
+  tmp_file="${DATA_FILE}.tmp.$$"
+  : > "$tmp_file"
+
+  local i
+  i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    if [ -n "${SESSIONS[$i]}" ]; then
+      printf '%s\t%s\n' "$i" "${SESSIONS[$i]}" >> "$tmp_file"
+    fi
+    i=$((i + 1))
+  done
+
+  mv "$tmp_file" "$DATA_FILE"
+}
+
+find_session_slot() {
+  local target="$1"
+  local i
+  i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    if [ "${SESSIONS[$i]}" = "$target" ]; then
+      printf '%s\n' "$i"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
+first_empty_slot() {
+  local i
+  i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    if [ -z "${SESSIONS[$i]}" ]; then
+      printf '%s\n' "$i"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
+session_exists() {
+  local session="$1"
+  tmux has-session -t "$session" 2>/dev/null
+}
+
+is_valid_slot() {
+  local slot="$1"
+  case "$slot" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  if [ "$slot" -lt 1 ] || [ "$slot" -gt "$MAX_SLOTS" ]; then
+    return 1
+  fi
+  return 0
+}
+
+compact_slots() {
+  local packed_sessions=()
+  local packed_count=0
+  local i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    if [ -n "${SESSIONS[$i]}" ]; then
+      packed_count=$((packed_count + 1))
+      packed_sessions[$packed_count]="${SESSIONS[$i]}"
+    fi
+    i=$((i + 1))
+  done
+
+  i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    if [ "$i" -le "$packed_count" ]; then
+      SESSIONS[$i]="${packed_sessions[$i]}"
+    else
+      SESSIONS[$i]=""
+    fi
+    i=$((i + 1))
+  done
+}
+
+swap_slots() {
+  local a="$1"
+  local b="$2"
+  local temp_session="${SESSIONS[$a]}"
+  SESSIONS[$a]="${SESSIONS[$b]}"
+  SESSIONS[$b]="$temp_session"
+}
+
+build_visible_slots() {
+  VISIBLE_SLOTS=()
+  VISIBLE_COUNT=0
+  local i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    if [ -n "${SESSIONS[$i]}" ]; then
+      VISIBLE_COUNT=$((VISIBLE_COUNT + 1))
+      VISIBLE_SLOTS[$VISIBLE_COUNT]="$i"
+    fi
+    i=$((i + 1))
+  done
+}
+
+visible_index_for_slot() {
+  local slot="$1"
+  local i=1
+  while [ "$i" -le "$VISIBLE_COUNT" ]; do
+    if [ "${VISIBLE_SLOTS[$i]}" = "$slot" ]; then
+      printf '%s\n' "$i"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
+normalize_selected_slot() {
+  local selected_slot="$1"
+  if [ "$VISIBLE_COUNT" -eq 0 ]; then
+    printf '%s\n' 0
+    return 0
+  fi
+  if [ -n "$selected_slot" ] && [ "$selected_slot" -ge 1 ] && [ "$selected_slot" -le "$MAX_SLOTS" ] && [ -n "${SESSIONS[$selected_slot]}" ]; then
+    printf '%s\n' "$selected_slot"
+    return 0
+  fi
+  printf '%s\n' "${VISIBLE_SLOTS[1]}"
+}
+
+selected_prev_slot() {
+  local selected_slot="$1"
+  local idx
+  if ! idx="$(visible_index_for_slot "$selected_slot")"; then
+    printf '%s\n' "$selected_slot"
+    return 0
+  fi
+  if [ "$idx" -gt 1 ]; then
+    idx=$((idx - 1))
+  fi
+  printf '%s\n' "${VISIBLE_SLOTS[$idx]}"
+}
+
+selected_next_slot() {
+  local selected_slot="$1"
+  local idx
+  if ! idx="$(visible_index_for_slot "$selected_slot")"; then
+    printf '%s\n' "$selected_slot"
+    return 0
+  fi
+  if [ "$idx" -lt "$VISIBLE_COUNT" ]; then
+    idx=$((idx + 1))
+  fi
+  printf '%s\n' "${VISIBLE_SLOTS[$idx]}"
+}
+
+remove_slot() {
+  local slot="$1"
+  if ! is_valid_slot "$slot"; then
+    return 1
+  fi
+
+  acquire_lock || return 1
+  load_state
+  if [ -z "${SESSIONS[$slot]}" ]; then
+    release_lock
+    return 1
+  fi
+
+  local removed_session="${SESSIONS[$slot]}"
+  SESSIONS[$slot]=""
+  save_state
+  release_lock
+  notify "removed '${removed_session}'"
+  return 0
+}
+
+move_selected() {
+  local selected_slot="$1"
+  local direction="$2"
+
+  acquire_lock || return 1
+  load_state
+  compact_slots
+  build_visible_slots
+  if [ "$VISIBLE_COUNT" -le 1 ]; then
+    release_lock
+    printf '%s\n' "$selected_slot"
+    return 0
+  fi
+
+  if [ -z "${SESSIONS[$selected_slot]}" ]; then
+    selected_slot="$(normalize_selected_slot "$selected_slot")"
+  fi
+
+  local idx
+  if ! idx="$(visible_index_for_slot "$selected_slot")"; then
+    release_lock
+    printf '%s\n' "$selected_slot"
+    return 0
+  fi
+
+  local target_idx="$idx"
+  case "$direction" in
+    up)
+      if [ "$idx" -gt 1 ]; then
+        target_idx=$((idx - 1))
+      fi
+      ;;
+    down)
+      if [ "$idx" -lt "$VISIBLE_COUNT" ]; then
+        target_idx=$((idx + 1))
+      fi
+      ;;
+    *)
+      release_lock
+      return 1
+      ;;
+  esac
+
+  if [ "$target_idx" -ne "$idx" ]; then
+    swap_slots "${VISIBLE_SLOTS[$idx]}" "${VISIBLE_SLOTS[$target_idx]}"
+    save_state
+    selected_slot="${VISIBLE_SLOTS[$target_idx]}"
+  fi
+  release_lock
+  printf '%s\n' "$selected_slot"
+  return 0
+}
+
+clear_all_slots() {
+  acquire_lock || return 1
+  init_state
+  save_state
+  release_lock
+  notify "grip list cleared"
+  return 0
+}
+
+cmd_add() {
+  local current_session="${1:-}"
+  if [ -z "$current_session" ]; then
+    current_session="$(tmux display-message -p '#{session_name}' 2>/dev/null || true)"
+  fi
+  if [ -z "$current_session" ]; then
+    notify "could not detect current session"
+    return 1
+  fi
+
+  acquire_lock || return 1
+  load_state
+
+  local existing_slot
+  if existing_slot="$(find_session_slot "$current_session")"; then
+    release_lock
+    notify "'${current_session}' already in slot ${existing_slot}"
+    return 0
+  fi
+
+  local slot
+  if slot="$(first_empty_slot)"; then
+    :
+  else
+    release_lock
+    notify "grip list is full"
+    return 1
+  fi
+
+  SESSIONS[$slot]="$current_session"
+  save_state
+  release_lock
+
+  notify "added '${current_session}' to slot ${slot}"
+  return 0
+}
+
+cmd_nav() {
+  local slot="${1:-}"
+  if ! is_valid_slot "$slot"; then
+    notify "invalid slot (1-${MAX_SLOTS})"
+    return 1
+  fi
+
+  acquire_lock || return 1
+  load_state
+
+  local target
+  target="${SESSIONS[$slot]}"
+  if [ -z "$target" ]; then
+    release_lock
+    notify "slot ${slot} is empty"
+    return 1
+  fi
+
+  if ! session_exists "$target"; then
+    SESSIONS[$slot]=""
+    save_state
+    release_lock
+    notify "session '${target}' missing, pruned slot ${slot}"
+    return 1
+  fi
+
+  release_lock
+  tmux switch-client -t "$target"
+  return 0
+}
+
+draw_popup() {
+  local selected_slot="$1"
+  printf 'grip list\n\n'
+  local i=1
+  while [ "$i" -le "$VISIBLE_COUNT" ]; do
+    local slot="${VISIBLE_SLOTS[$i]}"
+    local marker=' '
+    if [ "$slot" -eq "$selected_slot" ]; then
+      marker='>'
+    fi
+    printf '%s %s. %s\n' "$marker" "$slot" "${SESSIONS[$slot]}"
+    i=$((i + 1))
+  done
+}
+
+cmd_popup() {
+  popup_cleanup() {
+    printf '\033[?25h'
+  }
+
+  printf '\033[?25l'
+  trap 'popup_cleanup; release_lock' EXIT INT TERM
+
+  local selected_slot=0
+  local current_session
+  current_session="$(tmux display-message -p '#{session_name}' 2>/dev/null || true)"
+  if [ -n "$current_session" ]; then
+    load_state
+    if ! selected_slot="$(find_session_slot "$current_session")"; then
+      selected_slot=0
+    fi
+  fi
+
+  while true; do
+    load_state
+    build_visible_slots
+    if [ "$VISIBLE_COUNT" -eq 0 ]; then
+      exit 0
+    fi
+    selected_slot="$(normalize_selected_slot "$selected_slot")"
+
+    clear
+    draw_popup "$selected_slot"
+
+    local key
+    IFS= read -r -s -n 1 key
+    if [ -z "$key" ]; then
+      key=$'\n'
+    fi
+
+    case "$key" in
+      [1-9])
+        if cmd_nav "$key" >/dev/null 2>&1; then
+          exit 0
+        fi
+        ;;
+      j)
+        selected_slot="$(selected_next_slot "$selected_slot")"
+        ;;
+      k)
+        selected_slot="$(selected_prev_slot "$selected_slot")"
+        ;;
+      J)
+        selected_slot="$(move_selected "$selected_slot" down)"
+        ;;
+      K)
+        selected_slot="$(move_selected "$selected_slot" up)"
+        ;;
+      x)
+        remove_slot "$selected_slot" >/dev/null 2>&1
+        selected_slot=0
+        ;;
+      X)
+        clear_all_slots >/dev/null 2>&1
+        selected_slot=0
+        ;;
+      $'\n'|$'\r')
+        if cmd_nav "$selected_slot" >/dev/null 2>&1; then
+          exit 0
+        fi
+        ;;
+      $'\e')
+        exit 0
+        ;;
+      *)
+        ;;
+    esac
+  done
+}
+
+cmd_menu() {
+  load_state
+  build_visible_slots
+  if [ "$VISIBLE_COUNT" -eq 0 ]; then
+    notify "grip list is empty"
+    return 0
+  fi
+
+  if tmux list-commands 2>/dev/null | command grep -q '^display-popup'; then
+    tmux display-popup -w "$POPUP_WIDTH" -h "$POPUP_HEIGHT" -E "/usr/bin/env bash '$SCRIPT_PATH' popup"
+  else
+    notify "display-popup not supported (tmux >= 3.2 required)"
+    return 1
+  fi
+}
+
+main() {
+  local cmd="${1:-}"
+  case "$cmd" in
+    add)
+      shift
+      cmd_add "${1:-}"
+      ;;
+    nav)
+      shift
+      cmd_nav "${1:-}"
+      ;;
+    menu)
+      cmd_menu
+      ;;
+    popup)
+      cmd_popup
+      ;;
+    *)
+      notify "usage: grip {menu|add|nav <n>}"
+      return 1
+      ;;
+  esac
+}
+
+main "$@"
