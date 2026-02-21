@@ -45,7 +45,7 @@ bind_prefix_key() {
 
 open_key="$(get_tmux_opt '@tmux_grip_bind_open' 'g')"
 add_key="$(get_tmux_opt '@tmux_grip_bind_add' 'G')"
-enable_slot_binds="$(get_tmux_opt '@tmux_grip_enable_slot_binds' 'on')"
+enable_slot_binds="$(get_tmux_opt '@tmux_grip_enable_slot_binds' 'off')"
 script_cmd="/usr/bin/env bash '$CURRENT_DIR/scripts/tmux-grip'"
 
 max_slots_raw="$(get_tmux_opt '@tmux_grip_max_slots' '4')"

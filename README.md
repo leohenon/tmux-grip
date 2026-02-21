@@ -6,7 +6,7 @@
 
 - `prefix + G`: add current session to grip
 - `prefix + g`: open the grip viewer
-- `prefix + h/j/k/l`: jump directly to slots 1/2/3/4
+- Optional direct slot keys: `prefix + h/j/k/l`
 
 ## Install (TPM)
 
@@ -49,8 +49,8 @@ set -g @tmux_grip_bind_slot_4 'l'
 Notes:
 
 - Stale slots are removed when their session no longer exists.
-- Slot jump keys default to `h/j/k/l` for slots `1..4`.
-- Disable direct slot keys with `set -g @tmux_grip_enable_slot_binds 'off'`.
+- Direct slot keys are off by default. Enable with `set -g @tmux_grip_enable_slot_binds 'on'`.
+- Slot key defaults are `h/j/k/l` for slots `1..4`.
 - Slots persist across tmux restarts (saved to ~/.tmux/tmux-grip-marks).
 - Supports 9 slots max.
 
