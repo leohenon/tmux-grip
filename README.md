@@ -56,7 +56,7 @@ Notes:
 
 ## Requirements
 
-- tmux with `display-popup` support (tmux 3.2+).
+- tmux 3.2+
 
 ## License
 
