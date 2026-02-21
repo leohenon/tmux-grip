@@ -60,8 +60,8 @@ if [ "$max_slots" -gt 9 ]; then
   max_slots=9
 fi
 
-bind_prefix_key "@tmux_grip_bound_open_key" "$open_key" "$script_cmd menu"
-bind_prefix_key "@tmux_grip_bound_add_key" "$add_key" "$script_cmd add '#{session_name}'"
+bind_prefix_key "@tmux_grip_bound_open_key" "$open_key" "$script_cmd menu || true"
+bind_prefix_key "@tmux_grip_bound_add_key" "$add_key" "$script_cmd add '#{session_name}' || true"
 
 seen_slot_keys="|"
 i=1
@@ -96,7 +96,7 @@ while [ "$i" -le 9 ]; do
     seen_slot_keys="${seen_slot_keys}${slot_key}|"
 
     tmux unbind-key -T prefix "$slot_key" 2>/dev/null
-    tmux bind-key -T prefix "$slot_key" run-shell "$script_cmd nav $i"
+    tmux bind-key -T prefix "$slot_key" run-shell "$script_cmd nav $i || true"
     tmux set-option -gq "$state_key" "$slot_key"
   else
     tmux set-option -gq "$state_key" ""
