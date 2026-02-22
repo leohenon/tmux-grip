@@ -52,6 +52,8 @@ DATA_FILE="$(expand_home "$(get_tmux_opt '@tmux_grip_data_file' '~/.tmux/tmux-gr
 DATA_DIR="$(dirname "$DATA_FILE")"
 POPUP_WIDTH='35%'
 POPUP_HEIGHT='25%'
+POPUP_BORDER_STYLE='fg=colour8'
+POPUP_TITLE_ANSI='38;5;8'
 
 ensure_data_dir() {
   mkdir -p "$DATA_DIR"
@@ -420,7 +422,7 @@ cmd_nav() {
 
 draw_popup() {
   local selected_slot="$1"
-  printf 'grip list\n\n'
+  printf '\033[%smgrip list\033[0m\n\n' "$POPUP_TITLE_ANSI"
   local i=1
   while [ "$i" -le "$VISIBLE_COUNT" ]; do
     local slot="${VISIBLE_SLOTS[$i]}"
@@ -517,7 +519,7 @@ cmd_menu() {
   fi
 
   if tmux list-commands 2>/dev/null | command grep -q '^display-popup'; then
-    tmux display-popup -w "$POPUP_WIDTH" -h "$POPUP_HEIGHT" -E "/usr/bin/env bash '$SCRIPT_PATH' popup"
+    tmux display-popup -w "$POPUP_WIDTH" -h "$POPUP_HEIGHT" -S "$POPUP_BORDER_STYLE" -E "/usr/bin/env bash '$SCRIPT_PATH' popup"
   else
     notify "display-popup not supported (tmux >= 3.2 required)"
     return 1
