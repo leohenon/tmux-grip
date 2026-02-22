@@ -1,10 +1,6 @@
 # tmux-grip
 
-<<<<<<< Updated upstream
-`tmux-grip` is a tmux plugin inspired by `harpoon.nvim` that pins sessions into numbered slots for deterministic key-based jumps and fast cycling via a lightweight popup.
-=======
 `tmux-grip` is a tmux plugin inspired by `harpoon.nvim` that pins sessions into numbered slots for key-based jumps and fast cycling via a lightweight simple popup.
->>>>>>> Stashed changes
 
 ## Quick Start
 
@@ -28,6 +24,7 @@ Reload tmux and press `prefix + I` to install plugins.
 ## Viewer controls
 
 - `1..9`: jump directly to slot
+- Configured direct slot keys
 - `j` / `k`: move selection down/up
 - `J` / `K`: reorder selected session
 - `x`: remove selected session

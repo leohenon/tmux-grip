@@ -17,6 +17,16 @@ get_tmux_opt() {
   fi
 }
 
+default_slot_key() {
+  case "$1" in
+    1) printf '%s\n' 'h' ;;
+    2) printf '%s\n' 'j' ;;
+    3) printf '%s\n' 'k' ;;
+    4) printf '%s\n' 'l' ;;
+    *) printf '%s\n' '' ;;
+  esac
+}
+
 expand_home() {
   local path="$1"
   case "$path" in
@@ -52,8 +62,9 @@ DATA_FILE="$(expand_home "$(get_tmux_opt '@tmux_grip_data_file' '~/.tmux/tmux-gr
 DATA_DIR="$(dirname "$DATA_FILE")"
 POPUP_WIDTH='35%'
 POPUP_HEIGHT='25%'
-POPUP_BORDER_STYLE='fg=colour8'
+POPUP_BORDER_LINES='rounded'
 POPUP_TITLE_ANSI='38;5;8'
+POPUP_KEY_ANSI='38;5;8'
 
 ensure_data_dir() {
   mkdir -p "$DATA_DIR"
@@ -243,6 +254,39 @@ normalize_selected_slot() {
   printf '%s\n' "${VISIBLE_SLOTS[1]}"
 }
 
+load_popup_slot_keys() {
+  POPUP_SLOT_KEYS=()
+  local enable_slot_binds
+  enable_slot_binds="$(get_tmux_opt '@tmux_grip_enable_slot_binds' 'off')"
+  if [ "$enable_slot_binds" != "on" ]; then
+    return 0
+  fi
+
+  local i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    local key
+    key="$(tmux show-option -gqv "@tmux_grip_bound_slot_key_${i}" 2>/dev/null || true)"
+    if [ -z "$key" ]; then
+      key="$(get_tmux_opt "@tmux_grip_bind_slot_${i}" "$(default_slot_key "$i")")"
+    fi
+    POPUP_SLOT_KEYS[$i]="$key"
+    i=$((i + 1))
+  done
+}
+
+slot_for_popup_key() {
+  local key="$1"
+  local i=1
+  while [ "$i" -le "$MAX_SLOTS" ]; do
+    if [ -n "${POPUP_SLOT_KEYS[$i]:-}" ] && [ "${POPUP_SLOT_KEYS[$i]}" = "$key" ]; then
+      printf '%s\n' "$i"
+      return 0
+    fi
+    i=$((i + 1))
+  done
+  return 1
+}
+
 selected_prev_slot() {
   local selected_slot="$1"
   local idx
@@ -430,7 +474,12 @@ draw_popup() {
     if [ "$slot" -eq "$selected_slot" ]; then
       marker='>'
     fi
-    printf '%s %s. %s\n' "$marker" "$slot" "${SESSIONS[$slot]}"
+    local popup_key="${POPUP_SLOT_KEYS[$slot]:-}"
+    if [ -n "$popup_key" ]; then
+      printf '%s %s. %s \033[%sm[%s]\033[0m\n' "$marker" "$slot" "${SESSIONS[$slot]}" "$POPUP_KEY_ANSI" "$popup_key"
+    else
+      printf '%s %s. %s\n' "$marker" "$slot" "${SESSIONS[$slot]}"
+    fi
     i=$((i + 1))
   done
 }
@@ -456,6 +505,7 @@ cmd_popup() {
   while true; do
     load_state
     build_visible_slots
+    load_popup_slot_keys
     if [ "$VISIBLE_COUNT" -eq 0 ]; then
       exit 0
     fi
@@ -468,6 +518,13 @@ cmd_popup() {
     IFS= read -r -s -n 1 key
     if [ -z "$key" ]; then
       key=$'\n'
+    fi
+
+    local popup_slot
+    if popup_slot="$(slot_for_popup_key "$key")" && [ -n "${SESSIONS[$popup_slot]:-}" ]; then
+      if cmd_nav "$popup_slot" >/dev/null 2>&1; then
+        exit 0
+      fi
     fi
 
     case "$key" in
@@ -519,7 +576,7 @@ cmd_menu() {
   fi
 
   if tmux list-commands 2>/dev/null | command grep -q '^display-popup'; then
-    tmux display-popup -w "$POPUP_WIDTH" -h "$POPUP_HEIGHT" -S "$POPUP_BORDER_STYLE" -E "/usr/bin/env bash '$SCRIPT_PATH' popup"
+    tmux display-popup -w "$POPUP_WIDTH" -h "$POPUP_HEIGHT" -b "$POPUP_BORDER_LINES" -S "fg=colour241" -E "/usr/bin/env bash '$SCRIPT_PATH' popup"
   else
     notify "display-popup not supported (tmux >= 3.2 required)"
     return 1
