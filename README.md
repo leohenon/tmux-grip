@@ -26,6 +26,7 @@ Reload tmux and press `prefix + I` to install plugins.
 - `1..9`: jump directly to slot
 - Configured direct slot keys
 - `j` / `k`: move selection down/up
+- `Tab`: toggle between session list and panes for the selected session
 - `J` / `K`: reorder selected session
 - `x`: remove selected session
 - `X`: clear all sessions

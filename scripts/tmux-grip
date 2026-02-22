@@ -297,6 +297,85 @@ slot_for_popup_key() {
   return 1
 }
 
+build_popup_panes() {
+  local session="$1"
+  POPUP_PANE_LABELS=()
+  POPUP_PANE_TARGETS=()
+  POPUP_PANE_COUNT=0
+
+  local window_index pane_name pane_cmd pane_target
+  while IFS= read -r window_index; do
+    [ -z "$window_index" ] && continue
+    while IFS='|' read -r pane_name pane_cmd pane_target; do
+      if [ -z "$pane_target" ]; then
+        continue
+      fi
+      POPUP_PANE_COUNT=$((POPUP_PANE_COUNT + 1))
+      POPUP_PANE_TARGETS[$POPUP_PANE_COUNT]="$pane_target"
+      if [ -n "$pane_name" ]; then
+        POPUP_PANE_LABELS[$POPUP_PANE_COUNT]="$pane_name"
+      elif [ -n "$pane_cmd" ]; then
+        POPUP_PANE_LABELS[$POPUP_PANE_COUNT]="$pane_cmd"
+      else
+        POPUP_PANE_LABELS[$POPUP_PANE_COUNT]="pane ${POPUP_PANE_COUNT}"
+      fi
+    done < <(tmux list-panes -t "${session}:${window_index}" -F '#{window_name}|#{pane_current_command}|#{session_name}:#{window_index}.#{pane_index}' 2>/dev/null || true)
+  done < <(tmux list-windows -t "$session" -F '#{window_index}' 2>/dev/null || true)
+}
+
+normalize_selected_pane() {
+  local selected_pane="$1"
+  if [ "${POPUP_PANE_COUNT:-0}" -eq 0 ]; then
+    printf '%s\n' 0
+    return 0
+  fi
+  if [ -n "$selected_pane" ] && [ "$selected_pane" -ge 1 ] && [ "$selected_pane" -le "$POPUP_PANE_COUNT" ]; then
+    printf '%s\n' "$selected_pane"
+    return 0
+  fi
+  printf '%s\n' 1
+}
+
+selected_prev_pane() {
+  local selected_pane="$1"
+  if [ -z "$selected_pane" ] || [ "$selected_pane" -le 1 ]; then
+    printf '%s\n' 1
+    return 0
+  fi
+  printf '%s\n' "$((selected_pane - 1))"
+}
+
+selected_next_pane() {
+  local selected_pane="$1"
+  if [ -z "$selected_pane" ] || [ "$selected_pane" -ge "$POPUP_PANE_COUNT" ]; then
+    printf '%s\n' "$POPUP_PANE_COUNT"
+    return 0
+  fi
+  printf '%s\n' "$((selected_pane + 1))"
+}
+
+cmd_nav_pane() {
+  local session="$1"
+  local pane_index="$2"
+  if [ -z "$session" ] || [ -z "$pane_index" ]; then
+    return 1
+  fi
+  if [ "$pane_index" -lt 1 ] || [ "$pane_index" -gt "${POPUP_PANE_COUNT:-0}" ]; then
+    return 1
+  fi
+  if ! session_exists "$session"; then
+    return 1
+  fi
+
+  local pane_target="${POPUP_PANE_TARGETS[$pane_index]:-}"
+  if [ -z "$pane_target" ]; then
+    return 1
+  fi
+
+  tmux switch-client -t "$pane_target"
+  return 0
+}
+
 selected_prev_slot() {
   local selected_slot="$1"
   local idx
@@ -475,15 +554,31 @@ cmd_nav() {
 }
 
 draw_popup() {
-  local selected_slot="$1"
-  local show_slot_labels
-  show_slot_labels="$(popup_slot_labels_enabled)"
+  local view="$1"
+  local selected="$2"
+  local pane_session="${3:-}"
+  local show_slot_labels="$4"
+
+  if [ "$view" = "panes" ]; then
+    printf '\033[%sm%s\033[0m\n\n' "$POPUP_TITLE_ANSI" "$pane_session"
+    local i=1
+    while [ "$i" -le "$POPUP_PANE_COUNT" ]; do
+      local marker=' '
+      if [ "$i" -eq "$selected" ]; then
+        marker='>'
+      fi
+      printf '%s %s. %s\n' "$marker" "$i" "${POPUP_PANE_LABELS[$i]}"
+      i=$((i + 1))
+    done
+    return 0
+  fi
+
   printf '\033[%smgrip list\033[0m\n\n' "$POPUP_TITLE_ANSI"
   local i=1
   while [ "$i" -le "$VISIBLE_COUNT" ]; do
     local slot="${VISIBLE_SLOTS[$i]}"
     local marker=' '
-    if [ "$slot" -eq "$selected_slot" ]; then
+    if [ "$slot" -eq "$selected" ]; then
       marker='>'
     fi
     local popup_key="${POPUP_SLOT_KEYS[$slot]:-}"
@@ -505,6 +600,9 @@ cmd_popup() {
   trap 'popup_cleanup; release_lock' EXIT INT TERM
 
   local selected_slot=0
+  local selected_pane=1
+  local popup_view='sessions'
+  local pane_session=''
   local current_session
   current_session="$(tmux display-message -p '#{session_name}' 2>/dev/null || true)"
   if [ -n "$current_session" ]; then
@@ -515,16 +613,38 @@ cmd_popup() {
   fi
 
   while true; do
-    load_state
-    build_visible_slots
     load_popup_slot_keys
-    if [ "$VISIBLE_COUNT" -eq 0 ]; then
-      exit 0
+    local show_slot_labels
+    show_slot_labels="$(popup_slot_labels_enabled)"
+
+    if [ "$popup_view" = 'panes' ]; then
+      if [ -z "$pane_session" ] || ! session_exists "$pane_session"; then
+        popup_view='sessions'
+      else
+        build_popup_panes "$pane_session"
+        if [ "$POPUP_PANE_COUNT" -eq 0 ]; then
+          popup_view='sessions'
+        fi
+      fi
     fi
-    selected_slot="$(normalize_selected_slot "$selected_slot")"
+
+    if [ "$popup_view" = 'sessions' ]; then
+      load_state
+      build_visible_slots
+      if [ "$VISIBLE_COUNT" -eq 0 ]; then
+        exit 0
+      fi
+      selected_slot="$(normalize_selected_slot "$selected_slot")"
+    else
+      selected_pane="$(normalize_selected_pane "$selected_pane")"
+    fi
 
     clear
-    draw_popup "$selected_slot"
+    if [ "$popup_view" = 'sessions' ]; then
+      draw_popup 'sessions' "$selected_slot" '' "$show_slot_labels"
+    else
+      draw_popup 'panes' "$selected_pane" "$pane_session" "$show_slot_labels"
+    fi
 
     local key
     IFS= read -r -s -n 1 key
@@ -532,6 +652,7 @@ cmd_popup() {
       key=$'\n'
     fi
 
+    load_state
     local popup_slot
     if popup_slot="$(slot_for_popup_key "$key")" && [ -n "${SESSIONS[$popup_slot]:-}" ]; then
       if cmd_nav "$popup_slot" >/dev/null 2>&1; then
@@ -541,37 +662,81 @@ cmd_popup() {
 
     case "$key" in
       [1-9])
-        if cmd_nav "$key" >/dev/null 2>&1; then
-          exit 0
+        if [ "$popup_view" = 'sessions' ]; then
+          if cmd_nav "$key" >/dev/null 2>&1; then
+            exit 0
+          fi
+        elif [ "$key" -le "$POPUP_PANE_COUNT" ]; then
+          if cmd_nav_pane "$pane_session" "$key" >/dev/null 2>&1; then
+            exit 0
+          fi
         fi
         ;;
       j)
-        selected_slot="$(selected_next_slot "$selected_slot")"
+        if [ "$popup_view" = 'sessions' ]; then
+          selected_slot="$(selected_next_slot "$selected_slot")"
+        else
+          selected_pane="$(selected_next_pane "$selected_pane")"
+        fi
         ;;
       k)
-        selected_slot="$(selected_prev_slot "$selected_slot")"
+        if [ "$popup_view" = 'sessions' ]; then
+          selected_slot="$(selected_prev_slot "$selected_slot")"
+        else
+          selected_pane="$(selected_prev_pane "$selected_pane")"
+        fi
         ;;
       J)
-        selected_slot="$(move_selected "$selected_slot" down)"
+        if [ "$popup_view" = 'sessions' ]; then
+          selected_slot="$(move_selected "$selected_slot" down)"
+        fi
         ;;
       K)
-        selected_slot="$(move_selected "$selected_slot" up)"
+        if [ "$popup_view" = 'sessions' ]; then
+          selected_slot="$(move_selected "$selected_slot" up)"
+        fi
         ;;
       x)
-        remove_slot "$selected_slot" >/dev/null 2>&1
-        selected_slot=0
+        if [ "$popup_view" = 'sessions' ]; then
+          remove_slot "$selected_slot" >/dev/null 2>&1
+          selected_slot=0
+        fi
         ;;
       X)
-        clear_all_slots >/dev/null 2>&1
-        selected_slot=0
+        if [ "$popup_view" = 'sessions' ]; then
+          clear_all_slots >/dev/null 2>&1
+          selected_slot=0
+        fi
+        ;;
+      $'\t')
+        if [ "$popup_view" = 'sessions' ]; then
+          pane_session="${SESSIONS[$selected_slot]:-}"
+          if [ -n "$pane_session" ] && session_exists "$pane_session"; then
+            build_popup_panes "$pane_session"
+            if [ "$POPUP_PANE_COUNT" -gt 0 ]; then
+              popup_view='panes'
+              selected_pane=1
+            fi
+          fi
+        else
+          popup_view='sessions'
+        fi
         ;;
       $'\n'|$'\r')
-        if cmd_nav "$selected_slot" >/dev/null 2>&1; then
+        if [ "$popup_view" = 'sessions' ]; then
+          if cmd_nav "$selected_slot" >/dev/null 2>&1; then
+            exit 0
+          fi
+        elif cmd_nav_pane "$pane_session" "$selected_pane" >/dev/null 2>&1; then
           exit 0
         fi
         ;;
       $'\e')
-        exit 0
+        if [ "$popup_view" = 'panes' ]; then
+          popup_view='sessions'
+        else
+          exit 0
+        fi
         ;;
       *)
         ;;
