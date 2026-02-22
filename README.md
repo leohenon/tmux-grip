@@ -1,6 +1,10 @@
 # tmux-grip
 
+<<<<<<< Updated upstream
 `tmux-grip` is a tmux plugin inspired by `harpoon.nvim` that pins sessions into numbered slots for deterministic key-based jumps and fast cycling via a lightweight popup.
+=======
+`tmux-grip` is a tmux plugin inspired by `harpoon.nvim` that pins sessions into numbered slots for key-based jumps and fast cycling via a lightweight simple popup.
+>>>>>>> Stashed changes
 
 ## Quick Start
 
@@ -51,6 +55,7 @@ Notes:
 - Stale slots are removed when their session no longer exists.
 - Direct slot keys are off by default. Enable with `set -g @tmux_grip_enable_slot_binds 'on'`.
 - Slot key defaults are `h/j/k/l` for slots `1..4`.
+- If you already use `h/j/k/l` for pane focus, remap grip slots to a non-conflicting set like `y/u/i/o`.
 - Slots persist across tmux restarts (saved to ~/.tmux/tmux-grip-marks).
 - Supports 9 slots max.
 
