@@ -39,6 +39,7 @@ set -g @tmux_grip_max_slots 4
 set -g @tmux_grip_bind_open 'g'
 set -g @tmux_grip_bind_add 'G'
 set -g @tmux_grip_enable_slot_binds 'on'
+set -g @tmux_grip_show_popup_slot_labels 'on'
 
 # Direct jump keys
 set -g @tmux_grip_bind_slot_1 'h'

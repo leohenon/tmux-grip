@@ -274,6 +274,16 @@ load_popup_slot_keys() {
   done
 }
 
+popup_slot_labels_enabled() {
+  local show_labels
+  show_labels="$(get_tmux_opt '@tmux_grip_show_popup_slot_labels' 'on')"
+  if [ "$show_labels" = 'off' ]; then
+    printf '%s\n' 'off'
+  else
+    printf '%s\n' 'on'
+  fi
+}
+
 slot_for_popup_key() {
   local key="$1"
   local i=1
@@ -466,6 +476,8 @@ cmd_nav() {
 
 draw_popup() {
   local selected_slot="$1"
+  local show_slot_labels
+  show_slot_labels="$(popup_slot_labels_enabled)"
   printf '\033[%smgrip list\033[0m\n\n' "$POPUP_TITLE_ANSI"
   local i=1
   while [ "$i" -le "$VISIBLE_COUNT" ]; do
@@ -475,7 +487,7 @@ draw_popup() {
       marker='>'
     fi
     local popup_key="${POPUP_SLOT_KEYS[$slot]:-}"
-    if [ -n "$popup_key" ]; then
+    if [ "$show_slot_labels" = 'on' ] && [ -n "$popup_key" ]; then
       printf '%s %s. %s \033[%sm[%s]\033[0m\n' "$marker" "$slot" "${SESSIONS[$slot]}" "$POPUP_KEY_ANSI" "$popup_key"
     else
       printf '%s %s. %s\n' "$marker" "$slot" "${SESSIONS[$slot]}"
