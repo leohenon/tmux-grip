@@ -592,9 +592,19 @@ draw_popup() {
 }
 
 cmd_popup() {
+  local popup_tty_state=''
+
   popup_cleanup() {
+    if [ -n "$popup_tty_state" ]; then
+      stty "$popup_tty_state" 2>/dev/null || true
+    fi
     printf '\033[?25h'
   }
+
+  if [ -t 0 ]; then
+    popup_tty_state="$(stty -g 2>/dev/null || true)"
+    stty -echo -icanon time 0 min 1 2>/dev/null || true
+  fi
 
   printf '\033[?25l'
   trap 'popup_cleanup; release_lock' EXIT INT TERM
@@ -647,7 +657,7 @@ cmd_popup() {
     fi
 
     local key
-    IFS= read -r -s -n 1 key
+    IFS= read -r -n 1 key
     if [ -z "$key" ]; then
       key=$'\n'
     fi
