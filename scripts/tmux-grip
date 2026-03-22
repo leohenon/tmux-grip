@@ -559,10 +559,6 @@ draw_popup() {
   local selected="$2"
   local pane_session="${3:-}"
   local show_slot_labels="$4"
-  local cols
-  cols="$(tput cols 2>/dev/null || printf '80')"
-  cols=$((cols - 1))
-
   if [ "$view" = "panes" ]; then
     printf '\033[%sm%s\033[0m\n\n' "$POPUP_TITLE_ANSI" "$pane_session"
     local i=1
@@ -570,7 +566,7 @@ draw_popup() {
       local line
       line="$(printf '  %s. %s' "$i" "${POPUP_PANE_LABELS[$i]}")"
       if [ "$i" -eq "$selected" ]; then
-        printf '\033[%sm%-*s\033[0m\n' "$POPUP_HIGHLIGHT_ANSI" "$cols" "$line"
+        printf '\033[%sm%s\033[K\033[0m\n' "$POPUP_HIGHLIGHT_ANSI" "$line"
       else
         printf '%s\n' "$line"
       fi
@@ -585,15 +581,18 @@ draw_popup() {
     local slot="${VISIBLE_SLOTS[$i]}"
     local line
     local popup_key="${POPUP_SLOT_KEYS[$slot]:-}"
-    if [ "$show_slot_labels" = 'on' ] && [ -n "$popup_key" ]; then
-      line="$(printf '  %s. %s [%s]' "$slot" "${SESSIONS[$slot]}" "$popup_key")"
-    else
-      line="$(printf '  %s. %s' "$slot" "${SESSIONS[$slot]}")"
-    fi
     if [ "$slot" -eq "$selected" ]; then
-      printf '\033[%sm%-*s\033[0m\n' "$POPUP_HIGHLIGHT_ANSI" "$cols" "$line"
+      if [ "$show_slot_labels" = 'on' ] && [ -n "$popup_key" ]; then
+        printf '\033[%sm  %s. %s \033[%sm[%s]\033[K\033[0m\n' "$POPUP_HIGHLIGHT_ANSI" "$slot" "${SESSIONS[$slot]}" "$POPUP_HIGHLIGHT_ANSI;$POPUP_KEY_ANSI" "$popup_key"
+      else
+        printf '\033[%sm  %s. %s\033[K\033[0m\n' "$POPUP_HIGHLIGHT_ANSI" "$slot" "${SESSIONS[$slot]}"
+      fi
     else
-      printf '%s\n' "$line"
+      if [ "$show_slot_labels" = 'on' ] && [ -n "$popup_key" ]; then
+        printf '  %s. %s \033[%sm[%s]\033[0m\n' "$slot" "${SESSIONS[$slot]}" "$POPUP_KEY_ANSI" "$popup_key"
+      else
+        printf '  %s. %s\n' "$slot" "${SESSIONS[$slot]}"
+      fi
     fi
     i=$((i + 1))
   done
