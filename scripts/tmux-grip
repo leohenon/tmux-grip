@@ -65,6 +65,7 @@ POPUP_HEIGHT='25%'
 POPUP_BORDER_LINES='rounded'
 POPUP_TITLE_ANSI='38;5;8'
 POPUP_KEY_ANSI='38;5;8'
+POPUP_HIGHLIGHT_ANSI='48;5;236'
 
 ensure_data_dir() {
   mkdir -p "$DATA_DIR"
@@ -558,16 +559,21 @@ draw_popup() {
   local selected="$2"
   local pane_session="${3:-}"
   local show_slot_labels="$4"
+  local cols
+  cols="$(tput cols 2>/dev/null || printf '80')"
+  cols=$((cols - 1))
 
   if [ "$view" = "panes" ]; then
     printf '\033[%sm%s\033[0m\n\n' "$POPUP_TITLE_ANSI" "$pane_session"
     local i=1
     while [ "$i" -le "$POPUP_PANE_COUNT" ]; do
-      local marker=' '
+      local line
+      line="$(printf '  %s. %s' "$i" "${POPUP_PANE_LABELS[$i]}")"
       if [ "$i" -eq "$selected" ]; then
-        marker='>'
+        printf '\033[%sm%-*s\033[0m\n' "$POPUP_HIGHLIGHT_ANSI" "$cols" "$line"
+      else
+        printf '%s\n' "$line"
       fi
-      printf '%s %s. %s\n' "$marker" "$i" "${POPUP_PANE_LABELS[$i]}"
       i=$((i + 1))
     done
     return 0
@@ -577,15 +583,17 @@ draw_popup() {
   local i=1
   while [ "$i" -le "$VISIBLE_COUNT" ]; do
     local slot="${VISIBLE_SLOTS[$i]}"
-    local marker=' '
-    if [ "$slot" -eq "$selected" ]; then
-      marker='>'
-    fi
+    local line
     local popup_key="${POPUP_SLOT_KEYS[$slot]:-}"
     if [ "$show_slot_labels" = 'on' ] && [ -n "$popup_key" ]; then
-      printf '%s %s. %s \033[%sm[%s]\033[0m\n' "$marker" "$slot" "${SESSIONS[$slot]}" "$POPUP_KEY_ANSI" "$popup_key"
+      line="$(printf '  %s. %s [%s]' "$slot" "${SESSIONS[$slot]}" "$popup_key")"
     else
-      printf '%s %s. %s\n' "$marker" "$slot" "${SESSIONS[$slot]}"
+      line="$(printf '  %s. %s' "$slot" "${SESSIONS[$slot]}")"
+    fi
+    if [ "$slot" -eq "$selected" ]; then
+      printf '\033[%sm%-*s\033[0m\n' "$POPUP_HIGHLIGHT_ANSI" "$cols" "$line"
+    else
+      printf '%s\n' "$line"
     fi
     i=$((i + 1))
   done
