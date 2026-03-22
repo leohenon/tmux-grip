@@ -1,6 +1,17 @@
-# tmux-grip
+<h1 align="center"><code>tmux-grip</code></h1>
 
-`tmux-grip` is a tmux plugin inspired by `harpoon.nvim` that pins sessions into numbered slots for key-based jumps and fast cycling via a lightweight simple popup.
+<p align="center">
+  <a href="https://github.com/leohenon/tmux-grip/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leohenon/tmux-grip/ci.yml?style=for-the-badge&logo=github&logoColor=white&label=CI" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-3.2%2B-blue?style=for-the-badge&logo=tmux&logoColor=white" alt="tmux"></a>
+  <a href="https://github.com/leohenon/tmux-grip/tags"><img src="https://img.shields.io/github/v/tag/leohenon/tmux-grip?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Tag"></a>
+</p>
+
+<p align="center">
+  A tmux plugin inspired by <code>harpoon.nvim</code> that pins sessions into numbered slots for key-based jumps and fast cycling via a lightweight simple popup.
+</p>
+
+![demo](demo.gif)
 
 ## Quick Start
 
@@ -20,6 +31,20 @@ run '~/.tmux/plugins/tpm/tpm'
 ```
 
 Reload tmux and press `prefix + I` to install plugins.
+
+## Install (Manual)
+
+```bash
+git clone https://github.com/leohenon/tmux-grip ~/.tmux/plugins/tmux-grip
+```
+
+Add to your `tmux.conf`:
+
+```tmux
+run-shell ~/.tmux/plugins/tmux-grip/tmux-grip.tmux
+```
+
+Reload with `tmux source-file ~/.tmux.conf`.
 
 ## Viewer controls
 
@@ -49,14 +74,17 @@ set -g @tmux_grip_bind_slot_3 'k'
 set -g @tmux_grip_bind_slot_4 'l'
 ```
 
-Notes:
+> [!NOTE]
+>
+> - Stale slots are removed when their session no longer exists.
+> - Slots persist across tmux restarts (saved to `~/.tmux/tmux-grip-marks`).
+> - Supports 9 slots max.
 
-- Stale slots are removed when their session no longer exists.
-- Direct slot keys are off by default. Enable with `set -g @tmux_grip_enable_slot_binds 'on'`.
-- Slot key defaults are `h/j/k/l` for slots `1..4`.
-- If you already use `h/j/k/l` for pane focus, remap grip slots to a non-conflicting set like `y/u/i/o`.
-- Slots persist across tmux restarts (saved to ~/.tmux/tmux-grip-marks).
-- Supports 9 slots max.
+> [!TIP]
+>
+> - Direct slot keys are off by default. Enable with `set -g @tmux_grip_enable_slot_binds 'on'`.
+> - Slot key defaults are `h/j/k/l` for slots `1..4`.
+> - If you already use `h/j/k/l` for pane focus, remap grip slots to a non-conflicting set like `y/u/i/o`.
 
 ## Requirements
 
