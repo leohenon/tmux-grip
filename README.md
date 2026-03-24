@@ -1,10 +1,9 @@
-<h1 align="center"><code>tmux-grip</code></h1>
+<h1 align="center">tmux-grip</h1>
 
 <p align="center">
-  <a href="https://github.com/leohenon/tmux-grip/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leohenon/tmux-grip/ci.yml?style=for-the-badge&logo=github&logoColor=white&label=CI" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-3.2%2B-blue?style=for-the-badge&logo=tmux&logoColor=white" alt="tmux"></a>
-  <a href="https://github.com/leohenon/tmux-grip/tags"><img src="https://img.shields.io/github/v/tag/leohenon/tmux-grip?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Tag"></a>
+  <a href="https://github.com/leohenon/tmux-grip/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leohenon/tmux-grip/ci.yml?style=flat-square&logo=github&logoColor=white&label=CI&color=3fb950" alt="CI"></a>
+  <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-3.2%2B-85c1e9?style=flat-square&logo=tmux&logoColor=white" alt="tmux"></a>
+  <a href="https://github.com/leohenon/tmux-grip/tags"><img src="https://img.shields.io/github/v/tag/leohenon/tmux-grip?style=flat-square&logo=github&logoColor=white&color=bb8fce" alt="GitHub Tag"></a>
 </p>
 
 <p align="center">
