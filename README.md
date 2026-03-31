@@ -16,7 +16,7 @@
 
 - `prefix + G`: add current session to grip
 - `prefix + g`: open the grip viewer
-- Optional direct slot keys: `prefix + h/j/k/l`
+- Optional direct slot keys: `prefix + y/u/i/o`
 
 ## Install (TPM)
 
@@ -67,10 +67,10 @@ set -g @tmux_grip_enable_slot_binds 'on'
 set -g @tmux_grip_show_popup_slot_labels 'on'
 
 # Direct jump keys
-set -g @tmux_grip_bind_slot_1 'h'
-set -g @tmux_grip_bind_slot_2 'j'
-set -g @tmux_grip_bind_slot_3 'k'
-set -g @tmux_grip_bind_slot_4 'l'
+set -g @tmux_grip_bind_slot_1 'y'
+set -g @tmux_grip_bind_slot_2 'u'
+set -g @tmux_grip_bind_slot_3 'i'
+set -g @tmux_grip_bind_slot_4 'o'
 ```
 
 > [!NOTE]
@@ -82,8 +82,7 @@ set -g @tmux_grip_bind_slot_4 'l'
 > [!TIP]
 >
 > - Direct slot keys are off by default. Enable with `set -g @tmux_grip_enable_slot_binds 'on'`.
-> - Slot key defaults are `h/j/k/l` for slots `1..4`.
-> - If you already use `h/j/k/l` for pane focus, remap grip slots to a non-conflicting set like `y/u/i/o`.
+> - Slot key defaults are `y/u/i/o` for slots `1..4`.
 
 ## Requirements
 

@@ -16,10 +16,10 @@ get_tmux_opt() {
 
 default_slot_key() {
   case "$1" in
-    1) printf '%s\n' 'h' ;;
-    2) printf '%s\n' 'j' ;;
-    3) printf '%s\n' 'k' ;;
-    4) printf '%s\n' 'l' ;;
+    1) printf '%s\n' 'y' ;;
+    2) printf '%s\n' 'u' ;;
+    3) printf '%s\n' 'i' ;;
+    4) printf '%s\n' 'o' ;;
     *) printf '%s\n' '' ;;
   esac
 }
