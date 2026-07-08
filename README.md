@@ -1,16 +1,12 @@
-<h1 align="center">tmux-grip</h1>
+<h1 align="left">tmux-grip</h1>
 
-<p align="center">
-  <a href="https://github.com/leohenon/tmux-grip/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/leohenon/tmux-grip/ci.yml?style=flat-square&logo=github&logoColor=white&label=CI&color=3fb950" alt="CI"></a>
-  <a href="https://github.com/tmux/tmux"><img src="https://img.shields.io/badge/tmux-3.2%2B-85c1e9?style=flat-square&logo=tmux&logoColor=white" alt="tmux"></a>
+<p align="left">
   <a href="https://github.com/leohenon/tmux-grip/tags"><img src="https://img.shields.io/github/v/tag/leohenon/tmux-grip?style=flat-square&logo=github&logoColor=white&color=bb8fce" alt="GitHub Tag"></a>
 </p>
 
-<p align="center">
+<p align="left">
   A tmux plugin inspired by <code>harpoon.nvim</code> that pins sessions into numbered slots for key-based jumps and fast cycling via a lightweight simple popup.
 </p>
-
-![demo](demo.gif)
 
 ## Quick Start
 
@@ -87,7 +83,3 @@ set -g @tmux_grip_bind_slot_4 'o'
 ## Requirements
 
 - tmux 3.2+
-
-## License
-
-[MIT](LICENSE)
